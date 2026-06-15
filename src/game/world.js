@@ -8,6 +8,7 @@ import {
   TILE_HARDNESS,
   TILE_ORE_MAP
 } from './constants.js';
+import { RuinManager } from './ruins.js';
 
 export class World {
   constructor(seed = Date.now()) {
@@ -18,6 +19,7 @@ export class World {
     this.tiles = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
     this.tileHealth = new Float32Array(WORLD_WIDTH * WORLD_HEIGHT);
     this.dugTiles = new Uint8Array(WORLD_WIDTH * WORLD_HEIGHT);
+    this.ruinManager = new RuinManager();
     this.generate();
   }
 
@@ -121,6 +123,8 @@ export class World {
         }
       }
     }
+
+    this.ruinManager.generateRuins(this);
   }
 
   pickStoneType(noiseVal, stoneThresh, hardThresh, depthRatio) {
@@ -202,7 +206,18 @@ export class World {
 
   isSolid(x, y) {
     const tile = this.getTile(x, y);
-    return tile !== TILE_TYPES.EMPTY && tile !== TILE_TYPES.CAVE;
+    return tile !== TILE_TYPES.EMPTY &&
+           tile !== TILE_TYPES.CAVE &&
+           tile !== TILE_TYPES.RUINS_FLOOR &&
+           tile !== TILE_TYPES.RUINS_PRESSURE_PLATE &&
+           tile !== TILE_TYPES.RUINS_TRAP;
+  }
+
+  isRuinFloor(x, y) {
+    const tile = this.getTile(x, y);
+    return tile === TILE_TYPES.RUINS_FLOOR ||
+           tile === TILE_TYPES.RUINS_PRESSURE_PLATE ||
+           tile === TILE_TYPES.RUINS_TRAP;
   }
 
   checkCollapse(x, y) {

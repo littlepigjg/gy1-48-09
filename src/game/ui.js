@@ -1,4 +1,4 @@
-import { ORE_PRICES, ORE_NAMES, UPGRADE_DEFS, TILE_SIZE, SURFACE_Y, DEPTH_BONUS_MULTIPLIER } from './constants.js';
+import { ORE_PRICES, ORE_NAMES, UPGRADE_DEFS, TILE_SIZE, SURFACE_Y, DEPTH_BONUS_MULTIPLIER, LEGENDARY_ORE_PRICES, LEGENDARY_ORE_NAMES, BLUEPRINT_NAMES } from './constants.js';
 
 export class UIManager {
   constructor(game) {
@@ -19,10 +19,13 @@ export class UIManager {
       const maxDepth = this.game.player.maxDepth;
       const depthBonus = 1 + maxDepth * DEPTH_BONUS_MULTIPLIER;
       const result = this.game.player.sellOres(ORE_PRICES, depthBonus);
-      if (result.total > 0) {
-        let msg = `售出矿石获得 $${result.total}`;
-        if (result.bonus > 0) {
-          msg += ` (含深度加成 +$${result.bonus})`;
+      const legendaryResult = this.game.player.sellLegendaryOres(LEGENDARY_ORE_PRICES, depthBonus);
+      const total = result.total + legendaryResult.total;
+      if (total > 0) {
+        let msg = `售出矿石获得 $${total}`;
+        const bonus = result.bonus + legendaryResult.bonus;
+        if (bonus > 0) {
+          msg += ` (含深度加成 +$${bonus})`;
         }
         this.showWarning(msg, 2000, 'text-green-300');
       }
@@ -95,6 +98,10 @@ export class UIManager {
     document.getElementById('oreEmerald').textContent = p.cargo.emerald;
     document.getElementById('oreRuby').textContent = p.cargo.ruby;
 
+    this.updateLegendaryOres(p);
+    this.updateBlueprints(p);
+    this.updateRuinsUI();
+
     this.updateTeleportUI();
     this.checkWarnings();
   }
@@ -149,6 +156,65 @@ export class UIManager {
     const pct = Math.max(0, Math.min(100, (value / max) * 100));
     bar.style.width = pct + '%';
     text.textContent = `${Math.floor(value)}/${Math.floor(max)}`;
+  }
+
+  updateLegendaryOres(p) {
+    const legendaryDiv = document.getElementById('legendaryOres');
+    if (!p.legendaryOres) {
+      legendaryDiv.classList.add('hidden');
+      return;
+    }
+
+    const hasAny = Object.values(p.legendaryOres).some(v => v > 0);
+    if (!hasAny) {
+      legendaryDiv.classList.add('hidden');
+      return;
+    }
+
+    legendaryDiv.classList.remove('hidden');
+    document.getElementById('oreMythril').textContent = p.legendaryOres.mythril || 0;
+    document.getElementById('oreAdamantine').textContent = p.legendaryOres.adamantine || 0;
+    document.getElementById('oreVoidCrystal').textContent = p.legendaryOres.void_crystal || 0;
+    document.getElementById('oreAncientCore').textContent = p.legendaryOres.ancient_core || 0;
+  }
+
+  updateBlueprints(p) {
+    const bpDiv = document.getElementById('blueprints');
+    const bpList = document.getElementById('blueprintList');
+    if (!p.blueprints || p.blueprints.length === 0) {
+      bpDiv.classList.add('hidden');
+      return;
+    }
+
+    bpDiv.classList.remove('hidden');
+    bpList.innerHTML = '';
+    for (const bp of p.blueprints) {
+      const div = document.createElement('div');
+      div.textContent = `📜 ${BLUEPRINT_NAMES[bp] || bp}`;
+      bpList.appendChild(div);
+    }
+  }
+
+  updateRuinsUI() {
+    const panel = document.getElementById('ruinsPanel');
+    const ruin = this.game.currentRuin;
+
+    if (!ruin) {
+      panel.classList.add('hidden');
+      return;
+    }
+
+    panel.classList.remove('hidden');
+    const progress = Math.floor(ruin.explorationProgress * 100);
+    document.getElementById('ruinsProgressBar').style.width = progress + '%';
+    document.getElementById('ruinsProgressText').textContent = progress + '%';
+
+    const badge = document.getElementById('ruinsCompleteBadge');
+    if (ruin.completed) {
+      badge.classList.remove('hidden');
+    } else {
+      badge.classList.add('hidden');
+    }
   }
 
   checkWarnings() {
@@ -209,8 +275,11 @@ export class UIManager {
 
     const sellArea = document.getElementById('sellArea');
     sellArea.innerHTML = '';
+    let hasItems = false;
+
     for (const [type, count] of Object.entries(p.cargo)) {
       if (count > 0) {
+        hasItems = true;
         const div = document.createElement('div');
         div.className = 'flex justify-between items-center text-gray-300';
         div.innerHTML = `
@@ -220,7 +289,23 @@ export class UIManager {
         sellArea.appendChild(div);
       }
     }
-    if (sellArea.children.length === 0) {
+
+    if (p.legendaryOres) {
+      for (const [type, count] of Object.entries(p.legendaryOres)) {
+        if (count > 0) {
+          hasItems = true;
+          const div = document.createElement('div');
+          div.className = 'flex justify-between items-center text-purple-300';
+          div.innerHTML = `
+            <span>✨ ${LEGENDARY_ORE_NAMES[type]} x${count}</span>
+            <span class="text-yellow-400">$${count * LEGENDARY_ORE_PRICES[type]}</span>
+          `;
+          sellArea.appendChild(div);
+        }
+      }
+    }
+
+    if (!hasItems) {
       sellArea.innerHTML = '<div class="text-gray-500 text-center py-2">货仓为空</div>';
     }
 
@@ -281,6 +366,8 @@ export class UIManager {
       <div>📍 最深深度: ${stats.maxDepth}m</div>
       <div>⚔️ 击杀敌人: ${stats.enemiesKilled || 0}</div>
       <div>🪨 挖掘方块: ${stats.blocksDug || 0}</div>
+      <div>🏛️ 发现遗迹: ${stats.ruinsDiscovered || 0}</div>
+      <div>✨ 完全探索: ${stats.ruinsCompleted || 0}</div>
     `;
     screen.classList.remove('hidden');
     screen.classList.add('flex');

@@ -56,6 +56,15 @@ export class Player {
       diamond: 0
     };
 
+    this.legendaryOres = {
+      mythril: 0,
+      adamantine: 0,
+      void_crystal: 0,
+      ancient_core: 0
+    };
+
+    this.blueprints = [];
+
     this.maxDepth = 0;
     this.damageFlash = 0;
     this.diggingTarget = null;
@@ -138,6 +147,42 @@ export class Player {
     this.cargoUsed -= count;
     this.cargo[type] = 0;
     return { total: finalValue, base: Math.floor(baseValue), bonus: Math.floor(bonus) };
+  }
+
+  addLegendaryOre(oreType, amount = 1) {
+    if (this.legendaryOres[oreType] !== undefined) {
+      this.legendaryOres[oreType] += amount;
+      return true;
+    }
+    return false;
+  }
+
+  sellLegendaryOres(prices, depthBonusMultiplier = 1) {
+    let total = 0;
+    let bonus = 0;
+    for (const [type, count] of Object.entries(this.legendaryOres)) {
+      if (count > 0 && prices[type]) {
+        const baseValue = count * prices[type];
+        total += baseValue;
+        bonus += baseValue * (depthBonusMultiplier - 1);
+        this.legendaryOres[type] = 0;
+      }
+    }
+    const finalTotal = Math.floor(total + bonus);
+    this.gold += finalTotal;
+    return { total: finalTotal, base: Math.floor(total), bonus: Math.floor(bonus) };
+  }
+
+  addBlueprint(bpType) {
+    if (!this.blueprints.includes(bpType)) {
+      this.blueprints.push(bpType);
+      return true;
+    }
+    return false;
+  }
+
+  hasBlueprint(bpType) {
+    return this.blueprints.includes(bpType);
   }
 
   takeDamage(amount) {

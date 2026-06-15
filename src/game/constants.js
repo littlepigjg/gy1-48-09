@@ -18,7 +18,16 @@ export const TILE_TYPES = {
   ORE_DIAMOND: 15,
   CAVE: 20,
   POISON_GAS: 21,
-  INSTABILITY: 22
+  INSTABILITY: 22,
+  RUINS_WALL: 30,
+  RUINS_FLOOR: 31,
+  RUINS_DOOR: 32,
+  RUINS_TRAP: 33,
+  RUINS_PRESSURE_PLATE: 34,
+  RUINS_CHEST: 35,
+  RUINS_PILLAR: 36,
+  RUINS_TORCH: 37,
+  RUINS_ALTAR: 38
 };
 
 export const TILE_COLORS = {
@@ -36,7 +45,16 @@ export const TILE_COLORS = {
   [TILE_TYPES.ORE_DIAMOND]: ['#00CED1', '#40E0D0', '#AFEEEE'],
   [TILE_TYPES.CAVE]: null,
   [TILE_TYPES.POISON_GAS]: ['#7CFC00', '#90EE90', '#32CD32'],
-  [TILE_TYPES.INSTABILITY]: ['#8B0000', '#8B008B', '#FF8C00']
+  [TILE_TYPES.INSTABILITY]: ['#8B0000', '#8B008B', '#FF8C00'],
+  [TILE_TYPES.RUINS_WALL]: ['#4A3C2E', '#5D4E3A', '#3D3025'],
+  [TILE_TYPES.RUINS_FLOOR]: ['#6B5B4A', '#7D6B58', '#5C4D3D'],
+  [TILE_TYPES.RUINS_DOOR]: ['#8B4513', '#A0522D', '#6B3E0A'],
+  [TILE_TYPES.RUINS_TRAP]: ['#8B0000', '#A52A2A', '#6B0000'],
+  [TILE_TYPES.RUINS_PRESSURE_PLATE]: ['#555555', '#777777', '#444444'],
+  [TILE_TYPES.RUINS_CHEST]: ['#DAA520', '#FFD700', '#B8860B'],
+  [TILE_TYPES.RUINS_PILLAR]: ['#8B7355', '#A0826D', '#6B5A45'],
+  [TILE_TYPES.RUINS_TORCH]: ['#FF6600', '#FFAA00', '#CC5500'],
+  [TILE_TYPES.RUINS_ALTAR]: ['#4B0082', '#6A0DAD', '#3A0066']
 };
 
 export const TILE_HARDNESS = {
@@ -54,7 +72,16 @@ export const TILE_HARDNESS = {
   [TILE_TYPES.ORE_DIAMOND]: 5,
   [TILE_TYPES.CAVE]: 0,
   [TILE_TYPES.POISON_GAS]: 1,
-  [TILE_TYPES.INSTABILITY]: 2
+  [TILE_TYPES.INSTABILITY]: 2,
+  [TILE_TYPES.RUINS_WALL]: 6,
+  [TILE_TYPES.RUINS_FLOOR]: 0,
+  [TILE_TYPES.RUINS_DOOR]: 5,
+  [TILE_TYPES.RUINS_TRAP]: 1,
+  [TILE_TYPES.RUINS_PRESSURE_PLATE]: 1,
+  [TILE_TYPES.RUINS_CHEST]: 999,
+  [TILE_TYPES.RUINS_PILLAR]: 8,
+  [TILE_TYPES.RUINS_TORCH]: 1,
+  [TILE_TYPES.RUINS_ALTAR]: 999
 };
 
 export const ORE_PRICES = {
@@ -149,3 +176,52 @@ export const TELEPORT_COST_BASE = 30;
 export const TELEPORT_COST_PER_100M = 20;
 export const TELEPORT_DURATION = 2.5;
 export const TELEPORT_COOLDOWN = 5;
+
+export const LEGENDARY_ORE_PRICES = {
+  mythril: 500,
+  adamantine: 800,
+  void_crystal: 1200,
+  ancient_core: 2000
+};
+
+export const LEGENDARY_ORE_NAMES = {
+  mythril: '秘银',
+  adamantine: '精金',
+  void_crystal: '虚空水晶',
+  ancient_core: '远古核心'
+};
+
+export const BLUEPRINT_TYPES = {
+  DRILL_MASTER: 'drill_master',
+  ENGINE_BOOST: 'engine_boost',
+  CARGO_EXPANSION: 'cargo_expansion',
+  ARMOR_PLATE: 'armor_plate',
+  WEAPON_ENHANCE: 'weapon_enhance',
+  COOLING_SYSTEM: 'cooling_system'
+};
+
+export const BLUEPRINT_NAMES = {
+  drill_master: '大师钻头图纸',
+  engine_boost: '引擎强化图纸',
+  cargo_expansion: '货仓扩展图纸',
+  armor_plate: '装甲板图纸',
+  weapon_enhance: '武器增强图纸',
+  cooling_system: '冷却系统图纸'
+};
+
+export const RUINS_SPAWN_CONFIG = {
+  minDepth: 80,
+  baseChance: 0.002,
+  maxChance: 0.015,
+  minSize: 8,
+  maxSize: 20,
+  minRooms: 2,
+  maxRooms: 5
+};
+
+export const TRAP_DAMAGE = {
+  spike: 15,
+  poison: 8,
+  fire: 20,
+  arrow: 12
+};

@@ -1,4 +1,4 @@
-import { TILE_SIZE, WORLD_WIDTH, WORLD_HEIGHT, SURFACE_Y, TILE_TYPES, TILE_COLORS, DEPTH_BONUS_MULTIPLIER } from './constants.js';
+import { TILE_SIZE, WORLD_WIDTH, WORLD_HEIGHT, SURFACE_Y, TILE_TYPES, TILE_COLORS, DEPTH_BONUS_MULTIPLIER, LEGENDARY_ORE_PRICES, LEGENDARY_ORE_NAMES, BLUEPRINT_NAMES } from './constants.js';
 import { World } from './world.js';
 import { Player } from './player.js';
 import { EnemyManager } from './enemies.js';
@@ -20,8 +20,12 @@ export class Game {
 
     this.stats = {
       blocksDug: 0,
-      enemiesKilled: 0
+      enemiesKilled: 0,
+      ruinsDiscovered: 0,
+      ruinsCompleted: 0
     };
+
+    this.currentRuin = null;
 
     this.input = {
       left: false,
@@ -30,7 +34,8 @@ export class Game {
       down: false,
       dig: false,
       shoot: false,
-      teleport: false
+      teleport: false,
+      interact: false
     };
 
     this.bullets = [];
@@ -113,6 +118,10 @@ export class Game {
         case 'X':
           this.input.shoot = true;
           if (this.teleport.isTeleporting()) this.cancelTeleport();
+          break;
+        case 'e':
+        case 'E':
+          this.tryInteract();
           break;
         case 't':
         case 'T':
@@ -213,7 +222,8 @@ export class Game {
       this.particles,
       this.baseBuildingX,
       this.hazards,
-      this.teleport
+      this.teleport,
+      this.world.ruinManager
     );
 
     this.ui.updateHUD();
@@ -238,6 +248,10 @@ export class Game {
     });
 
     this.enemies.update(dt, this.player, this.world);
+    this.updateRuinExploration();
+    this.updateGuardians(dt);
+    this.checkTraps();
+    this.checkPressurePlates();
     this.handleDigging(dt);
     this.handleShooting(dt);
     this.updateBullets(dt);
@@ -253,6 +267,7 @@ export class Game {
     this.checkHazards(dt);
     this.checkCollapses(dt);
     this.checkEnemyKills();
+    this.checkGuardianKills();
     this.checkLowResources();
   }
 
@@ -377,10 +392,36 @@ export class Game {
         continue;
       }
 
+      if (this.checkGuardianBulletCollision(b)) {
+        this.particles.spawnCircle(b.x, b.y, '#FF4444', 8, 3);
+        this.renderer.shake(0.5, 0.1);
+        this.bullets.splice(i, 1);
+        continue;
+      }
+
       if (b.life <= 0) {
         this.bullets.splice(i, 1);
       }
     }
+  }
+
+  checkGuardianBulletCollision(bullet) {
+    const ruinManager = this.world.ruinManager;
+    for (const ruin of ruinManager.ruins) {
+      for (const g of ruin.guardians) {
+        if (g.health <= 0) continue;
+        const dx = bullet.x - g.x;
+        const dy = bullet.y - g.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        if (dist < TILE_SIZE * g.size * 0.6) {
+          g.health -= bullet.damage;
+          g.damageFlash = 0.2;
+          g.awakened = true;
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   getDustColor(tile) {
@@ -506,6 +547,254 @@ export class Game {
     }
   }
 
+  updateRuinExploration() {
+    const ruinManager = this.world.ruinManager;
+    const result = ruinManager.updateExploration(this.player.tileX, this.player.tileY);
+
+    if (result) {
+      if (result.type === 'discovered') {
+        this.stats.ruinsDiscovered++;
+        this.ui.showWarning('🏛️ 发现古代遗迹！按E键与宝箱互动', 3000, 'text-purple-300');
+        this.currentRuin = result.ruin;
+      } else if (result.type === 'completed') {
+        this.stats.ruinsCompleted++;
+        this.giveCompletionBonus(result.ruin);
+      }
+    } else {
+      const current = ruinManager.getCurrentRuin(this.player.tileX, this.player.tileY);
+      if (current && !this.currentRuin) {
+        this.currentRuin = current;
+      } else if (!current && this.currentRuin) {
+        this.currentRuin = null;
+      }
+    }
+  }
+
+  giveCompletionBonus(ruin) {
+    if (ruin.completionBonusClaimed) return;
+    ruin.completionBonusClaimed = true;
+
+    const bonusGold = 200 + Math.floor(ruin.depthLevel * 3);
+    this.player.gold += bonusGold;
+
+    const bonusOreTypes = Object.keys(LEGENDARY_ORE_PRICES);
+    const randomOre = bonusOreTypes[Math.floor(Math.random() * bonusOreTypes.length)];
+    const oreAmount = 1 + Math.floor(Math.random() * 2);
+    this.player.addLegendaryOre(randomOre, oreAmount);
+
+    this.ui.showWarning(
+      `✨ 遗迹完全探索！奖励: $${bonusGold} + ${oreAmount}个${LEGENDARY_ORE_NAMES[randomOre]}`,
+      4000,
+      'text-yellow-300'
+    );
+
+    this.particles.spawnCircle(
+      this.player.x,
+      this.player.y,
+      '#FFD700',
+      30,
+      6
+    );
+    this.renderer.shake(3, 0.5);
+  }
+
+  updateGuardians(dt) {
+    const ruinManager = this.world.ruinManager;
+
+    for (const ruin of ruinManager.ruins) {
+      for (const guardian of ruin.guardians) {
+        if (guardian.health <= 0) continue;
+
+        if (guardian.damageFlash > 0) {
+          guardian.damageFlash -= dt;
+        }
+
+        const dx = this.player.x - guardian.x;
+        const dy = this.player.y - guardian.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        const roomMinX = (ruin.x + guardian.localRoomX) * TILE_SIZE;
+        const roomMinY = (ruin.y + guardian.localRoomY) * TILE_SIZE;
+        const roomMaxX = (ruin.x + guardian.localRoomX + guardian.roomWidth) * TILE_SIZE;
+        const roomMaxY = (ruin.y + guardian.localRoomY + guardian.roomHeight) * TILE_SIZE;
+
+        const playerInRoom = this.player.x >= roomMinX && this.player.x <= roomMaxX &&
+                             this.player.y >= roomMinY && this.player.y <= roomMaxY;
+
+        if (playerInRoom || dist < TILE_SIZE * 6) {
+          guardian.awakened = true;
+        }
+
+        if (!guardian.awakened) continue;
+
+        if (dist < TILE_SIZE * 8 && dist > 0) {
+          const speed = guardian.speed * dt * 60;
+          let moveX = (dx / dist) * speed;
+          let moveY = (dy / dist) * speed;
+
+          const newX = guardian.x + moveX;
+          const newY = guardian.y + moveY;
+
+          if (newX > roomMinX + TILE_SIZE && newX < roomMaxX - TILE_SIZE) {
+            guardian.x = newX;
+          }
+          if (newY > roomMinY + TILE_SIZE && newY < roomMaxY - TILE_SIZE) {
+            guardian.y = newY;
+          }
+        }
+
+        if (dist < TILE_SIZE * 0.8) {
+          this.player.takeDamage(guardian.damage * dt);
+        }
+      }
+    }
+  }
+
+  checkTraps() {
+    const ruinManager = this.world.ruinManager;
+    const trap = ruinManager.checkTrapCollision(this.player, this.world);
+
+    if (trap) {
+      this.player.takeDamage(trap.damage);
+      this.renderer.shake(2, 0.3);
+      this.particles.spawnCircle(
+        this.player.x,
+        this.player.y,
+        '#FF4444',
+        10,
+        3
+      );
+
+      const trapNames = {
+        spike: '尖刺陷阱',
+        poison: '毒气陷阱',
+        fire: '火焰陷阱',
+        arrow: '箭矢陷阱'
+      };
+      this.ui.showWarning(`⚠️ ${trapNames[trap.type] || '陷阱'}！受到 ${trap.damage} 点伤害`, 1500);
+    }
+  }
+
+  checkPressurePlates() {
+    const ruinManager = this.world.ruinManager;
+    const result = ruinManager.checkPressurePlate(this.player, this.world);
+
+    if (result) {
+      const doorResult = ruinManager.activatePressurePlate(result.ruin, result.plate);
+      if (doorResult) {
+        const tile = doorResult.open ? TILE_TYPES.RUINS_FLOOR : TILE_TYPES.RUINS_DOOR;
+        this.world.setTile(doorResult.worldX, doorResult.worldY, tile);
+        this.ui.showWarning(doorResult.open ? '🚪 门已开启！' : '🚪 门已关闭', 1500, 'text-cyan-300');
+      }
+    }
+  }
+
+  tryInteract() {
+    if (!this.running || this.paused || this.teleport.isTeleporting()) return;
+
+    const ruinManager = this.world.ruinManager;
+    const result = ruinManager.checkChestInteraction(this.player, this.world);
+
+    if (result) {
+      this.openChest(result.ruin, result.chest);
+    }
+  }
+
+  openChest(ruin, chest) {
+    if (chest.opened) return;
+
+    const loot = this.world.ruinManager.openChest(ruin, chest);
+
+    this.player.gold += loot.gold;
+
+    for (const [oreType, amount] of Object.entries(loot.ores)) {
+      this.player.addLegendaryOre(oreType, amount);
+    }
+
+    for (const bp of loot.blueprints) {
+      const isNew = this.player.addBlueprint(bp);
+      if (isNew) {
+        this.applyBlueprintBonus(bp);
+      }
+    }
+
+    const worldX = (ruin.x + chest.x) * TILE_SIZE + TILE_SIZE / 2;
+    const worldY = (ruin.y + chest.y) * TILE_SIZE + TILE_SIZE / 2;
+    this.world.setTile(ruin.x + chest.x, ruin.y + chest.y, TILE_TYPES.RUINS_FLOOR);
+
+    this.particles.spawnCircle(worldX, worldY, '#FFD700', 20, 5);
+    this.particles.spawn(worldX, worldY, '#FFD700', 15, 4, { gravity: -0.1 });
+    this.renderer.shake(1.5, 0.3);
+
+    let lootMsg = `📦 宝箱！获得 $${loot.gold}`;
+    const oreNames = [];
+    for (const [oreType, amount] of Object.entries(loot.ores)) {
+      oreNames.push(`${amount}个${LEGENDARY_ORE_NAMES[oreType]}`);
+    }
+    if (oreNames.length > 0) {
+      lootMsg += ` + ${oreNames.join('、')}`;
+    }
+    if (loot.blueprints.length > 0) {
+      const bpNames = loot.blueprints.map(bp => BLUEPRINT_NAMES[bp] || bp);
+      lootMsg += ` + 图纸: ${bpNames.join('、')}`;
+    }
+
+    this.ui.showWarning(lootMsg, 3000, 'text-yellow-300');
+  }
+
+  applyBlueprintBonus(bpType) {
+    switch (bpType) {
+      case 'drill_master':
+        this.player.drillPower += 1;
+        break;
+      case 'engine_boost':
+        this.player.speed += 0.5;
+        this.player.fuelConsumption *= 0.9;
+        break;
+      case 'cargo_expansion':
+        this.player.maxCargo += 20;
+        break;
+      case 'armor_plate':
+        this.player.maxHealth += 25;
+        this.player.health += 25;
+        this.player.damageReduction += 0.05;
+        break;
+      case 'weapon_enhance':
+        this.player.weaponDamage += 10;
+        this.player.weaponCooldown = Math.max(100, this.player.weaponCooldown - 50);
+        break;
+      case 'cooling_system':
+        this.player.coolingRate += 0.05;
+        this.player.heatGeneration *= 0.85;
+        break;
+    }
+  }
+
+  checkGuardianKills() {
+    const ruinManager = this.world.ruinManager;
+
+    for (const ruin of ruinManager.ruins) {
+      for (let i = ruin.guardians.length - 1; i >= 0; i--) {
+        const g = ruin.guardians[i];
+        if (g.health <= 0) {
+          this.player.gold += g.gold;
+          this.particles.spawnCircle(g.x, g.y, g.color, 15, 4);
+          this.particles.spawn(g.x, g.y, '#FFD700', 8, 4, { gravity: -0.05 });
+          this.stats.enemiesKilled++;
+
+          if (Math.random() < 0.3) {
+            const oreTypes = Object.keys(LEGENDARY_ORE_PRICES);
+            const randomOre = oreTypes[Math.floor(Math.random() * oreTypes.length)];
+            this.player.addLegendaryOre(randomOre, 1);
+            this.ui.showWarning(`✨ 守护者掉落: ${LEGENDARY_ORE_NAMES[randomOre]}`, 2000, 'text-purple-300');
+          }
+
+          ruin.guardians.splice(i, 1);
+        }
+      }
+    }
+  }
+
   gameOver() {
     this.running = false;
     this.ui.hideHUD();
@@ -513,7 +802,9 @@ export class Game {
       gold: this.player.gold,
       maxDepth: this.player.maxDepth,
       enemiesKilled: this.stats.enemiesKilled,
-      blocksDug: this.stats.blocksDug
+      blocksDug: this.stats.blocksDug,
+      ruinsDiscovered: this.stats.ruinsDiscovered,
+      ruinsCompleted: this.stats.ruinsCompleted
     });
   }
 

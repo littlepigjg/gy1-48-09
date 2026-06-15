@@ -70,6 +70,27 @@
             <div>💚 祖母绿: <span id="oreEmerald">0</span></div>
             <div>❤️ 红宝石: <span id="oreRuby">0</span></div>
           </div>
+          <div id="legendaryOres" class="text-purple-300 text-xs mt-2 hidden">
+            <div class="text-purple-400 font-bold mb-1">✨ 传说矿石</div>
+            <div>🔮 秘银: <span id="oreMythril">0</span></div>
+            <div>⚡ 精金: <span id="oreAdamantine">0</span></div>
+            <div>💜 虚空水晶: <span id="oreVoidCrystal">0</span></div>
+            <div>🌟 远古核心: <span id="oreAncientCore">0</span></div>
+          </div>
+          <div id="blueprints" class="text-amber-300 text-xs mt-2 hidden">
+            <div class="text-amber-400 font-bold mb-1">📜 图纸</div>
+            <div id="blueprintList" class="space-y-1"></div>
+          </div>
+        </div>
+
+        <div id="ruinsPanel" class="bg-black/80 rounded-lg p-3 border-2 border-purple-600/50 hidden">
+          <div class="text-purple-400 font-game text-xs mb-2">🏛️ 古代遗迹</div>
+          <div class="text-gray-300 text-xs mb-1">探索进度</div>
+          <div class="w-40 h-3 bg-gray-800 rounded-full overflow-hidden border border-purple-900">
+            <div id="ruinsProgressBar" class="h-full bg-gradient-to-r from-purple-600 to-pink-500 transition-all duration-300" style="width: 0%"></div>
+          </div>
+          <div class="text-purple-300 text-xs mt-1"><span id="ruinsProgressText">0%</span></div>
+          <div id="ruinsCompleteBadge" class="text-yellow-400 text-xs mt-1 hidden">✨ 完全探索！</div>
         </div>
 
         <div class="absolute top-4 left-1/2 transform -translate-x-1/2 pointer-events-auto">
